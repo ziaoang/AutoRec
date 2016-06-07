@@ -15,6 +15,7 @@ batchSize = 64
 epochCount = 50
 regular = 0.1
 k = 10
+globalMean = 3.5811
 
 random.seed(123456789)
 np.random.seed(123456789)
@@ -45,21 +46,24 @@ print(trainSet.shape)
 print(testSet.shape)
 
 # matrix factorization
-U = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
-V = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
-
 u = tf.placeholder(tf.int32, [None, 1])
 v = tf.placeholder(tf.int32, [None, 1])
-
-userEmbedding = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
-itemEmbedding = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
-
-predict_r = tf.reduce_sum(tf.mul(userEmbedding, itemEmbedding), 1, keep_dims=True)
-
 r = tf.placeholder(tf.float32, [None, 1])
 
-loss = tf.reduce_mean(tf.square(tf.sub(predict_r, r)))
-loss_r = tf.reduce_mean(tf.square(tf.sub(predict_r, r))) + regular * (tf.reduce_sum(tf.square(U)) + tf.reduce_sum(tf.square(V)))
+U      = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
+V      = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
+U_bias = tf.Variable(tf.random_uniform([userCount, 1], 0.0, 1.0))
+V_bias = tf.Variable(tf.random_uniform([itemCount, 1], 0.0, 1.0))
+
+userEmbedding     = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
+itemEmbedding     = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
+userBiasEmbedding = tf.reshape(tf.nn.embedding_lookup(U_bias, u), [-1, 1])
+itemBiasEmbedding = tf.reshape(tf.nn.embedding_lookup(V_bias, v), [-1, 1])
+
+interaction = tf.reduce_sum(tf.mul(userEmbedding, itemEmbedding), 1, keep_dims=True)
+y = interaction + userBiasEmbedding + itemBiasEmbedding + globalMean
+
+loss = tf.reduce_mean(tf.square(tf.sub(y, r)))
 optimizer = tf.train.GradientDescentOptimizer(learnRate)
 trainStep = optimizer.minimize(loss)
 
