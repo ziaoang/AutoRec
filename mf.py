@@ -1,79 +1,75 @@
 import tensorflow as tf
 import numpy as np
-import random
-import sys
 
+tf.set_random_seed(123456789)
+np.random.seed(123456789)
+
+import sys
 try:
-    learnRate = float(sys.argv[1])
+    useBias   = int(sys.argv[1])
     batchSize = int(sys.argv[2])
-    regular   = float(sys.argv[3])
+    learnRate = float(sys.argv[3])
+    reLambda  = float(sys.argv[4])
 except:
-    print("learnRate batchSize regular")
+    print("useBias(0|1) batchSize learnRate reLambda")
     exit()
 
-#learnRate = 0.1
+#useBias   = 1   # 1 for use and 0 for not use
 #batchSize = 64
-#regular = 0.1
+#learnRate = 0.1
+#reLambda  = 0.1
 
-epochCount = 100
+# log
+print("parameter list:")
+print("use bias:\t%d"%useBias)
+print("batch size:\t%d"%batchSize)
+print("learn rate:\t%f"%learnRate)
+print("regular lambda:\t%f"%reLambda)
+print("="*20)
+
+# hyper parameter
 k = 10
-globalMean = 3.5811
-
-random.seed(123456789)
-np.random.seed(123456789)
-tf.set_random_seed(123456789)
+epochCount = 100
 
 # load data
-userCount = 6040
-itemCount = 3952
-
-trainSet = []
-testSet = []
-lines = open("ml-1m/ratings.dat").readlines()
-random.shuffle(lines)
-for i in range(len(lines)):
-    t = lines[i].strip().split("::")
-    userId = int(t[0]) - 1
-    itemId = int(t[1]) - 1
-    rating = float(t[2])
-
-    if i < 0.9 * len(lines):
-        trainSet.append([userId, itemId, rating])
-    else:
-        testSet.append([userId, itemId, rating])
-
-trainSet = np.array(trainSet)
-testSet = np.array(testSet)
+import data
+userCount, itemCount, trainSet, testSet = data.ml_1m()
+globalMean = trainSet[:,2:3].mean()
 
 # matrix factorization
 u = tf.placeholder(tf.int32,   [None, 1])
 v = tf.placeholder(tf.int32,   [None, 1])
 r = tf.placeholder(tf.float32, [None, 1])
 
-userFactorEmbeddingMatrix = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
-itemFactorEmbeddingMatrix = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
-userBiasEmbeddingMatrix   = tf.Variable(tf.random_uniform([userCount, 1], 0.0, 1.0))
-itemBiasEmbeddingMatrix   = tf.Variable(tf.random_uniform([itemCount, 1], 0.0, 1.0))
+U     = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
+V     = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
+biasU = tf.Variable(tf.random_uniform([userCount, 1], 0.0, 1.0))
+biasV = tf.Variable(tf.random_uniform([itemCount, 1], 0.0, 1.0))
 
-userFactorEmbedding = tf.reshape(tf.nn.embedding_lookup(userFactorEmbeddingMatrix, u), [-1, k])
-itemFactorEmbedding = tf.reshape(tf.nn.embedding_lookup(itemFactorEmbeddingMatrix, v), [-1, k])
-userBiasEmbedding   = tf.reshape(tf.nn.embedding_lookup(userBiasEmbeddingMatrix, u),   [-1, 1])
-itemBiasEmbedding   = tf.reshape(tf.nn.embedding_lookup(itemBiasEmbeddingMatrix, v),   [-1, 1])
+uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
+vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
+uBias   = tf.reshape(tf.nn.embedding_lookup(biasU, u), [-1, 1])
+vBias   = tf.reshape(tf.nn.embedding_lookup(biasV, v), [-1, 1])
 
-y = tf.reduce_sum(tf.mul(userFactorEmbedding, itemFactorEmbedding), 1, keep_dims=True)
-userRegular = tf.reduce_sum(tf.square(userFactorEmbedding), 1, keep_dims=True)
-itemRegular = tf.reduce_sum(tf.square(itemFactorEmbedding), 1, keep_dims=True)
+uFactorRegular = tf.reduce_sum(tf.square(uFactor), 1, keep_dims=True)
+vFactorRegular = tf.reduce_sum(tf.square(vFactor), 1, keep_dims=True)
+uBiasRegular   = tf.square(uBias)
+vBiasRegular   = tf.square(vBias)
 
-loss = tf.reduce_mean( tf.square(r - y) + regular * (userRegular + itemRegular) )
-optimizer = tf.train.GradientDescentOptimizer(learnRate)
-trainStep = optimizer.minimize(loss)
+interAction = tf.reduce_sum(tf.mul(uFactor, vFactor), 1, keep_dims=True)
+y = interAction + useBias * (globalMean + uBias + vBias)
 
-rmse = tf.sqrt(tf.reduce_mean(tf.square(r-y)))
-
-# training
+# loss function
 sess = tf.InteractiveSession()
 sess.run(tf.initialize_all_variables())
 
+loss = tf.reduce_mean(tf.square(r - y) + reLambda * (uFactorRegular + vFactorRegular + useBias * (uBiasRegular + vBiasRegular)))
+trainStep = tf.train.GradientDescentOptimizer(learnRate).minimize(loss)
+
+rmse = tf.sqrt(tf.reduce_mean(tf.square(r - y)))
+mae  = tf.reduce_mean(tf.abs(r - y))
+
+# iterator
 for epoch in range(epochCount):
     np.random.shuffle(trainSet)
  
@@ -93,12 +89,11 @@ for epoch in range(epochCount):
     test_v = testSet[:, 1:2]
     test_r = testSet[:, 2:3]
 
-    #predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})    
-    #print(test_r[0][0], predict_r[0][0])
+    # predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})
+    # print(test_r[0][0], predict_r[0][0])
 
     result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
     print("%d/%d\t%.4f"%(epoch+1, epochCount, result))
-
 
 
 
