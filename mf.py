@@ -6,14 +6,16 @@ import sys
 try:
     learnRate = float(sys.argv[1])
     batchSize = int(sys.argv[2])
+    regular   = float(sys.argv[3])
 except:
-    print("learnRate batchSize")
+    print("learnRate batchSize regular")
     exit()
 
-learnRate = 0.1
-batchSize = 64
-epochCount = 50
-regular = 0.1
+#learnRate = 0.1
+#batchSize = 64
+#regular = 0.1
+
+epochCount = 100
 k = 10
 globalMean = 3.5811
 
@@ -42,43 +44,31 @@ for i in range(len(lines)):
 
 trainSet = np.array(trainSet)
 testSet = np.array(testSet)
-print(trainSet.shape)
-print(testSet.shape)
 
 # matrix factorization
-u = tf.placeholder(tf.int32, [None, 1])
-v = tf.placeholder(tf.int32, [None, 1])
+u = tf.placeholder(tf.int32,   [None, 1])
+v = tf.placeholder(tf.int32,   [None, 1])
 r = tf.placeholder(tf.float32, [None, 1])
 
-U      = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
-V      = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
-U_bias = tf.Variable(tf.random_uniform([userCount, 1], 0.0, 1.0))
-V_bias = tf.Variable(tf.random_uniform([itemCount, 1], 0.0, 1.0))
+userFactorEmbeddingMatrix = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
+itemFactorEmbeddingMatrix = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
+userBiasEmbeddingMatrix   = tf.Variable(tf.random_uniform([userCount, 1], 0.0, 1.0))
+itemBiasEmbeddingMatrix   = tf.Variable(tf.random_uniform([itemCount, 1], 0.0, 1.0))
 
-userEmbedding     = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
-itemEmbedding     = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
-userBiasEmbedding = tf.reshape(tf.nn.embedding_lookup(U_bias, u), [-1, 1])
-itemBiasEmbedding = tf.reshape(tf.nn.embedding_lookup(V_bias, v), [-1, 1])
+userFactorEmbedding = tf.reshape(tf.nn.embedding_lookup(userFactorEmbeddingMatrix, u), [-1, k])
+itemFactorEmbedding = tf.reshape(tf.nn.embedding_lookup(itemFactorEmbeddingMatrix, v), [-1, k])
+userBiasEmbedding   = tf.reshape(tf.nn.embedding_lookup(userBiasEmbeddingMatrix, u),   [-1, 1])
+itemBiasEmbedding   = tf.reshape(tf.nn.embedding_lookup(itemBiasEmbeddingMatrix, v),   [-1, 1])
 
-interaction = tf.reduce_sum(tf.mul(userEmbedding, itemEmbedding), 1, keep_dims=True)
-y = interaction + userBiasEmbedding + itemBiasEmbedding + globalMean
+y = tf.reduce_sum(tf.mul(userFactorEmbedding, itemFactorEmbedding), 1, keep_dims=True)
+userRegular = tf.reduce_sum(tf.square(userFactorEmbedding), 1, keep_dims=True)
+itemRegular = tf.reduce_sum(tf.square(itemFactorEmbedding), 1, keep_dims=True)
 
-loss = tf.reduce_mean(tf.square(tf.sub(y, r)))
+loss = tf.reduce_mean( tf.square(r - y) + regular * (userRegular + itemRegular) )
 optimizer = tf.train.GradientDescentOptimizer(learnRate)
 trainStep = optimizer.minimize(loss)
 
-rmse = tf.sqrt(loss)
-
-#print(U.get_shape())
-#print(V.get_shape())
-#print(u.get_shape())
-#print(v.get_shape())
-#print(userEmbedding.get_shape())
-#print(itemEmbedding.get_shape())
-#print(predict_r.get_shape())
-#print(r.get_shape())
-#print(loss.get_shape())
-#print(rmse.get_shape())
+rmse = tf.sqrt(tf.reduce_mean(tf.square(r-y)))
 
 # training
 sess = tf.InteractiveSession()
@@ -95,9 +85,6 @@ for epoch in range(epochCount):
         batch_u = trainSet[start:end, 0:1]
         batch_v = trainSet[start:end, 1:2]
         batch_r = trainSet[start:end, 2:3]
-        #print(batch_u.shape)
-        #print(batch_v.shape)
-        #print(batch_r.shape)
         
         trainStep.run(feed_dict={u:batch_u, v:batch_v, r:batch_r})
 
@@ -105,14 +92,14 @@ for epoch in range(epochCount):
     test_u = testSet[:, 0:1]
     test_v = testSet[:, 1:2]
     test_r = testSet[:, 2:3]
-    #print(test_u.shape)
-    #print(test_v.shape)
-    #print(test_r.shape)
 
-    pre_r = predict_r.eval(feed_dict={u:test_u, v:test_v, r:test_r})    
-    print(test_r[0][0], pre_r[0][0])
+    #predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})    
+    #print(test_r[0][0], predict_r[0][0])
 
     result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
-    print("epoch %d/%d\trmse: %.4f"%(epoch+1, epochCount, result))
+    print("%d/%d\t%.4f"%(epoch+1, epochCount, result))
+
+
+
 
 
