@@ -57,7 +57,8 @@ y = tf.matmul(yMid, W2) + b2
 regularization = 0.001 # 0.001, 0.01, 0.1, 1, 100, 1000
 learnRate = 0.01
 
-loss = tf.reduce_sum(tf.square(tf.mul(tf.sub(x, y), mask))) + regularization / 2 * (tf.reduce_sum(tf.square(W1)) + tf.reduce_sum(tf.square(W2)))
+#loss = tf.reduce_sum(tf.square(tf.mul(tf.sub(x, y), mask))) + regularization / 2 * (tf.reduce_sum(tf.square(W1)) + tf.reduce_sum(tf.square(W2)))
+loss = tf.reduce_sum(tf.square(tf.mul(tf.sub(x, y), mask)))
 optimizer = tf.train.GradientDescentOptimizer(learnRate)
 trainStep = optimizer.minimize(loss)
 
@@ -68,15 +69,12 @@ rmse = tf.sqrt(tf.div(tf.reduce_sum(tf.square(tf.mul(tf.sub(x_, y), mask_))), tf
 
 # training
 epochCount = 50
-batchSize = 16
+batchSize = 32
 
 sess = tf.InteractiveSession()
 sess.run(tf.initialize_all_variables())
 
 for epoch in range(epochCount):
-
-    print("epoch: %d/%d"%(epoch+1, epochCount))
-
     itemIdList = trainX.keys()
     random.shuffle(itemIdList)
     
@@ -114,4 +112,5 @@ for epoch in range(epochCount):
     totalMask_ = np.array(totalMask_)
 
     result = rmse.eval(feed_dict={x: totalX, x_: totalX_, mask_: totalMask_})
-    print("rmse: %.4f"%result)
+    print("epoch %d/%d\trmse: %.4f"%(epoch+1, epochCount, result))
+
