@@ -1,32 +1,21 @@
 import numpy as np
-import random
 from collections import defaultdict
 import math
 
-random.seed(123456789)
-
 # load data
-globalRating = []
+import data
+userCount, itemCount, trainSet, testSet = data.ml_1m()
+globalMean = trainSet[:,2:3].mean()
+
 userRating = defaultdict(list)
 itemRating = defaultdict(list)
-
-lines = open("ml-1m/ratings.dat").readlines()
-random.shuffle(lines)
-
-totalCount = len(lines)
-splitPoint = int(totalCount * 0.9)
-
-for i in range(splitPoint):
-    t = lines[i].strip().split("::")
-    userId = t[0]
-    itemId = t[1]
+for t in trainSet:
+    userId = int(t[0])
+    itemId = int(t[1])
     rating = float(t[2])
-
-    globalRating.append(rating)
     userRating[userId].append(rating)
     itemRating[itemId].append(rating)
 
-globalMean = np.array(globalRating).mean()
 userMean = {}
 for userId in userRating:
     userMean[userId] = np.array(userRating[userId]).mean()
@@ -34,17 +23,18 @@ itemMean = {}
 for itemId in itemRating:
     itemMean[itemId] = np.array(itemRating[itemId]).mean()
 
+cnt = 0
 global_rmse = 0.0
 user_rmse = 0.0
 item_rmse = 0.0
 user_item_rmse = 0.0
-cnt = 0        
-for i in range(splitPoint, totalCount):
-    t = lines[i].strip().split("::")
-    userId = t[0]
-    itemId = t[1]
+for t in testSet:
+    userId = int(t[0])
+    itemId = int(t[1])
     rating = float(t[2])
 
+    cnt += 1
+    
     global_rmse += (rating - globalMean) ** 2
 
     if userId in userMean:
@@ -67,8 +57,6 @@ for i in range(splitPoint, totalCount):
             user_item_rmse += (rating - (globalMean + itemMean[itemId])/2) ** 2
         else:
             user_item_rmse += (rating - globalMean) ** 2
-
-    cnt += 1
 
 global_rmse = math.sqrt(global_rmse / cnt)
 user_rmse = math.sqrt(user_rmse / cnt)

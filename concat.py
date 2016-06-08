@@ -8,20 +8,17 @@ import sys
 try:
     batchSize = int(sys.argv[1])
     learnRate = float(sys.argv[2])
-    reLambda  = float(sys.argv[3])
 except:
-    print("batchSize learnRate reLambda")
+    print("batchSize learnRate")
     exit()
 
 #batchSize = 64
 #learnRate = 0.1
-#reLambda  = 0.1
 
 # log
 print("parameter list:")
 print("batch size:\t%d"%batchSize)
 print("learn rate:\t%f"%learnRate)
-print("regular lambda:\t%f"%reLambda)
 print("="*20)
 
 # hyper parameter
@@ -38,23 +35,31 @@ u = tf.placeholder(tf.int32,   [None, 1])
 v = tf.placeholder(tf.int32,   [None, 1])
 r = tf.placeholder(tf.float32, [None, 1])
 
-U = tf.Variable(tf.random_uniform([userCount, k], -0.05, 0.05))
-V = tf.Variable(tf.random_uniform([itemCount, k], -0.05, 0.05))
+U = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
+V = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
 
 uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
 vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
 
-y = tf.reduce_sum(tf.mul(uFactor, vFactor), 1, keep_dims=True)
+merge = tf.concat(1, [uFactor, vFactor])
+
+W1 = tf.Variable(tf.random_uniform([2*k, k], 0.0, 0.1))
+b1 = tf.Variable(tf.random_uniform([k], 0.0, 0.1))
+y1 = tf.sigmoid(tf.matmul(merge, W1) + b1)
+
+W2 = tf.Variable(tf.random_uniform([k, 1], 0.0, 0.1))
+b2 = tf.Variable(tf.random_uniform([1], 0.0, 0.1))
+y  = tf.matmul(y1, W2) + b2
+
 rmse = tf.sqrt(tf.reduce_mean(tf.square(r - y)))
 mae  = tf.reduce_mean(tf.abs(r - y))
+
 
 # loss function
 sess = tf.InteractiveSession()
 sess.run(tf.initialize_all_variables())
 
-uFactorRegular = tf.reduce_sum(tf.square(uFactor), 1, keep_dims=True)
-vFactorRegular = tf.reduce_sum(tf.square(vFactor), 1, keep_dims=True)
-loss = tf.reduce_mean(tf.square(r - y) + reLambda * (uFactorRegular + vFactorRegular))
+loss = tf.reduce_mean(tf.square(r - y))
 trainStep = tf.train.GradientDescentOptimizer(learnRate).minimize(loss)
 
 # iterator
@@ -77,12 +82,11 @@ for epoch in range(epochCount):
     test_v = testSet[:, 1:2]
     test_r = testSet[:, 2:3]
 
-    # predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})
-    # print(test_r[0][0], predict_r[0][0])
+    #predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})
+    #print(test_r[0][0], predict_r[0][0])
 
     result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
     print("%d/%d\t%.4f"%(epoch+1, epochCount, result))
-
 
 
 

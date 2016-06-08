@@ -40,11 +40,15 @@ r = tf.placeholder(tf.float32, [None, 1])
 
 U = tf.Variable(tf.random_uniform([userCount, k], -0.05, 0.05))
 V = tf.Variable(tf.random_uniform([itemCount, k], -0.05, 0.05))
+biasU = tf.Variable(tf.random_uniform([userCount, 1], -0.05, 0.05))
+biasV = tf.Variable(tf.random_uniform([itemCount, 1], -0.05, 0.05))
 
 uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
 vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
+uBias   = tf.reshape(tf.nn.embedding_lookup(biasU, u), [-1, 1])
+vBias   = tf.reshape(tf.nn.embedding_lookup(biasV, v), [-1, 1])
 
-y = tf.reduce_sum(tf.mul(uFactor, vFactor), 1, keep_dims=True)
+y = tf.reduce_sum(tf.mul(uFactor, vFactor), 1, keep_dims=True) + uBias + vBias + globalMean
 rmse = tf.sqrt(tf.reduce_mean(tf.square(r - y)))
 mae  = tf.reduce_mean(tf.abs(r - y))
 
@@ -54,7 +58,9 @@ sess.run(tf.initialize_all_variables())
 
 uFactorRegular = tf.reduce_sum(tf.square(uFactor), 1, keep_dims=True)
 vFactorRegular = tf.reduce_sum(tf.square(vFactor), 1, keep_dims=True)
-loss = tf.reduce_mean(tf.square(r - y) + reLambda * (uFactorRegular + vFactorRegular))
+uBiasRegular   = tf.square(uBias)
+vBiasRegular   = tf.square(vBias)
+loss = tf.reduce_mean(tf.square(r - y) + reLambda * (uFactorRegular + vFactorRegular + uBiasRegular + vBiasRegular))
 trainStep = tf.train.GradientDescentOptimizer(learnRate).minimize(loss)
 
 # iterator
