@@ -35,20 +35,24 @@ u = tf.placeholder(tf.int32,   [None, 1])
 v = tf.placeholder(tf.int32,   [None, 1])
 r = tf.placeholder(tf.float32, [None, 1])
 
-U = tf.Variable(tf.random_uniform([userCount, k], 0.0, 1.0))
-V = tf.Variable(tf.random_uniform([itemCount, k], 0.0, 1.0))
+U = tf.Variable(tf.random_uniform([userCount, k], -0.05, 0.05))
+V = tf.Variable(tf.random_uniform([itemCount, k], -0.05, 0.05))
 
 uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
 vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
 
 merge = tf.concat(1, [uFactor, vFactor])
 
-W1 = tf.Variable(tf.random_uniform([2*k, k], 0.0, 0.1))
-b1 = tf.Variable(tf.random_uniform([k], 0.0, 0.1))
+import math
+scale1 = math.sqrt(6.0 / (2*k + k))
+
+W1 = tf.Variable(tf.random_uniform([2*k, k], -scale1, scale1))
+b1 = tf.Variable(tf.random_uniform([k], -scale1, scale1))
 y1 = tf.sigmoid(tf.matmul(merge, W1) + b1)
 
-W2 = tf.Variable(tf.random_uniform([k, 1], 0.0, 0.1))
-b2 = tf.Variable(tf.random_uniform([1], 0.0, 0.1))
+scale2 = math.sqrt(6.0 / (k + 1))
+W2 = tf.Variable(tf.random_uniform([k, 1], -scale2, scale2))
+b2 = tf.Variable(tf.random_uniform([1], -scale2, scale2))
 y  = tf.matmul(y1, W2) + b2
 
 rmse = tf.sqrt(tf.reduce_mean(tf.square(r - y)))
