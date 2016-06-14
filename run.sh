@@ -1,8 +1,9 @@
-for learnRate in 0.1 0.2 0.5; do
-    for batchSize in 64; do
-        for regular in 0 0.1 0.01; do
-            echo ${learnRate} ${batchSize} ${regular}
-            python mf.py ${learnRate} ${batchSize} ${regular} > log/${learnRate}_${batchSize}_${regular}.log
-        done
+for batchSize in 32 64 128; do
+    for learnRate in 0.05 0.1 0.2 0.5; do
+        echo ${batchSize} ${learnRate}
+        python concat_a_b.py ${batchSize} ${learnRate} > log/a_b_${batchSize}_${learnRate}.log
+        python concat_a_b_ab.py ${batchSize} ${learnRate} > log/a_b_ab_${batchSize}_${learnRate}.log
+        python concat_ab.py ${batchSize} ${learnRate} > log/ab_${batchSize}_${learnRate}.log
     done
 done
+
