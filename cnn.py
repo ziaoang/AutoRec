@@ -22,7 +22,7 @@ print("learn rate:\t%f"%learnRate)
 print("="*20)
 
 # hyper parameter
-k = 10
+k = 12
 epochCount = 100
 
 # load data
@@ -38,22 +38,52 @@ r = tf.placeholder(tf.float32, [None, 1])
 U = tf.Variable(tf.random_uniform([userCount, k], -0.05, 0.05))
 V = tf.Variable(tf.random_uniform([itemCount, k], -0.05, 0.05))
 
-uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
-vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
+uFactor = tf.nn.embedding_lookup(U, u)
+vFactor = tf.nn.embedding_lookup(V, v)
 
-merge = tf.concat(1, [uFactor * vFactor])
+x_image = tf.reshape(tf.batch_matmul(uFactor, vFactor, adj_x=True, adj_y=False), [-1, k, k, 1])
 
-import math
-scale1 = math.sqrt(6.0 / (k + k))
+def weight_variable(shape):
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(initial)
 
-W1 = tf.Variable(tf.random_uniform([k, k], -scale1, scale1))
-b1 = tf.Variable(tf.random_uniform([k], -scale1, scale1))
-y1 = tf.sigmoid(tf.matmul(merge, W1) + b1)
+def bias_variable(shape):
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable(initial)
 
-scale2 = math.sqrt(6.0 / (k + 1))
-W2 = tf.Variable(tf.random_uniform([k, 1], -scale2, scale2))
-b2 = tf.Variable(tf.random_uniform([1], -scale2, scale2))
-y  = tf.matmul(y1, W2) + b2
+def conv2d(x, W): 
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+
+def max_pool_2x2(x):
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+# first layer
+W_conv1 = weight_variable([5, 5, 1, 32])
+b_conv1 = bias_variable([32])
+
+h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+h_pool1 = max_pool_2x2(h_conv1)
+
+# second layer
+W_conv2 = weight_variable([5, 5, 32, 64])
+b_conv2 = bias_variable([64])
+
+h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+h_pool2 = max_pool_2x2(h_conv2)
+
+W_fc1 = weight_variable([3 * 3 * 64, 64])
+b_fc1 = bias_variable([64])
+
+h_pool2_flat = tf.reshape(h_pool2, [-1, 3 * 3 * 64])
+h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+
+keep_prob = tf.placeholder(tf.float32)
+h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
+W_fc2 = weight_variable([64, 1])
+b_fc2 = bias_variable([1])
+
+y = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
 rmse = tf.sqrt(tf.reduce_mean(tf.square(r - y)))
 mae  = tf.reduce_mean(tf.abs(r - y))
@@ -79,18 +109,17 @@ for epoch in range(epochCount):
         batch_v = trainSet[start:end, 1:2]
         batch_r = trainSet[start:end, 2:3]
         
-        trainStep.run(feed_dict={u:batch_u, v:batch_v, r:batch_r})
+        trainStep.run(feed_dict={u:batch_u, v:batch_v, r:batch_r, keep_prob:0.5})
 
     # predict
     test_u = testSet[:, 0:1]
     test_v = testSet[:, 1:2]
     test_r = testSet[:, 2:3]
 
-    #predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})
+    #predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r, keep_prob:1.0})
     #print(test_r[0][0], predict_r[0][0])
 
-    result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
+    result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r, keep_prob:1.0})
     print("%d/%d\t%.4f"%(epoch+1, epochCount, result))
-
 
 

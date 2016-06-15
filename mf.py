@@ -61,8 +61,6 @@ trainStep = tf.train.GradientDescentOptimizer(learnRate).minimize(loss)
 for epoch in range(epochCount):
     np.random.shuffle(trainSet)
 
-    print(1)
- 
     # train
     for batchId in range( trainSet.shape[0] / batchSize ):
         start = batchId * batchSize

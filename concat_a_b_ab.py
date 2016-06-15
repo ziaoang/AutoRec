@@ -44,14 +44,14 @@ vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
 merge = tf.concat(1, [uFactor, vFactor, uFactor * vFactor])
 
 import math
-scale1 = math.sqrt(6.0 / (3*k + 3*k/2))
+scale1 = math.sqrt(6.0 / (3*k + k))
 
-W1 = tf.Variable(tf.random_uniform([3*k, 3*k/2], -scale1, scale1))
-b1 = tf.Variable(tf.random_uniform([3*k/2], -scale1, scale1))
+W1 = tf.Variable(tf.random_uniform([3*k, k], -scale1, scale1))
+b1 = tf.Variable(tf.random_uniform([k], -scale1, scale1))
 y1 = tf.sigmoid(tf.matmul(merge, W1) + b1)
 
-scale2 = math.sqrt(6.0 / (3*k/2 + 1))
-W2 = tf.Variable(tf.random_uniform([3*k/2, 1], -scale2, scale2))
+scale2 = math.sqrt(6.0 / (k + 1))
+W2 = tf.Variable(tf.random_uniform([k, 1], -scale2, scale2))
 b2 = tf.Variable(tf.random_uniform([1], -scale2, scale2))
 y  = tf.matmul(y1, W2) + b2
 

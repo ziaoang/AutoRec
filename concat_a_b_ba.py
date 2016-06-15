@@ -38,15 +38,16 @@ r = tf.placeholder(tf.float32, [None, 1])
 U = tf.Variable(tf.random_uniform([userCount, k], -0.05, 0.05))
 V = tf.Variable(tf.random_uniform([itemCount, k], -0.05, 0.05))
 
-uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
-vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
+uFactor = tf.nn.embedding_lookup(U, u)
+vFactor = tf.nn.embedding_lookup(V, v)
 
-merge = tf.concat(1, [uFactor * vFactor])
+matmul = tf.reshape(tf.batch_matmul(uFactor, vFactor, adj_x=True, adj_y=False), [-1, k*k])
+merge = tf.concat(1, [tf.reshape(uFactor, [-1, k]), tf.reshape(vFactor, [-1, k]), matmul])
 
 import math
-scale1 = math.sqrt(6.0 / (k + k))
+scale1 = math.sqrt(6.0 / (k*k+2*k + k))
 
-W1 = tf.Variable(tf.random_uniform([k, k], -scale1, scale1))
+W1 = tf.Variable(tf.random_uniform([k*k+2*k, k], -scale1, scale1))
 b1 = tf.Variable(tf.random_uniform([k], -scale1, scale1))
 y1 = tf.sigmoid(tf.matmul(merge, W1) + b1)
 
@@ -91,6 +92,5 @@ for epoch in range(epochCount):
 
     result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
     print("%d/%d\t%.4f"%(epoch+1, epochCount, result))
-
 
 
