@@ -12,11 +12,7 @@ except:
     print("batchSize learnRate")
     exit()
 
-#batchSize = 64
-#learnRate = 0.1
-
-# log
-print("parameter list:")
+print("parameter info:")
 print("batch size:\t%d"%batchSize)
 print("learn rate:\t%f"%learnRate)
 print("="*20)
@@ -28,9 +24,15 @@ epochCount = 100
 # load data
 import data
 userCount, itemCount, trainSet, testSet = data.ml_1m()
-globalMean = trainSet[:,2:3].mean()
 
-# matrix factorization
+print("dataset info:")
+print("user count:\t%d"%(userCount))
+print("item count:\t%d"%(itemCount))
+print("train count:\t%d"%(trainSet.shape[0]))
+print("test count:\t%d"%(testSet.shape[0]))
+print("="*20)
+
+# embedding layer
 u = tf.placeholder(tf.int32,   [None, 1])
 v = tf.placeholder(tf.int32,   [None, 1])
 r = tf.placeholder(tf.float32, [None, 1])
@@ -41,23 +43,25 @@ V = tf.Variable(tf.random_uniform([itemCount, k], -0.05, 0.05))
 uFactor = tf.reshape(tf.nn.embedding_lookup(U, u), [-1, k])
 vFactor = tf.reshape(tf.nn.embedding_lookup(V, v), [-1, k])
 
-merge = tf.concat(1, [uFactor - vFactor])
+merge = uFactor - vFactor
 
+# fully connection layer
 import math
-scale1 = math.sqrt(6.0 / (k + k))
+layer1 = k
+layer2 = k/2
+scale1 = math.sqrt(6.0 / (layer1 + layer2))
+scale2 = math.sqrt(6.0 / (layer2 + 1))
 
-W1 = tf.Variable(tf.random_uniform([k, k], -scale1, scale1))
-b1 = tf.Variable(tf.random_uniform([k], -scale1, scale1))
+W1 = tf.Variable(tf.random_uniform([layer1, layer2], -scale1, scale1))
+b1 = tf.Variable(tf.random_uniform([layer2], -scale1, scale1))
 y1 = tf.sigmoid(tf.matmul(merge, W1) + b1)
 
-scale2 = math.sqrt(6.0 / (k + 1))
-W2 = tf.Variable(tf.random_uniform([k, 1], -scale2, scale2))
+W2 = tf.Variable(tf.random_uniform([layer2, 1], -scale2, scale2))
 b2 = tf.Variable(tf.random_uniform([1], -scale2, scale2))
 y  = tf.matmul(y1, W2) + b2
 
 rmse = tf.sqrt(tf.reduce_mean(tf.square(r - y)))
 mae  = tf.reduce_mean(tf.abs(r - y))
-
 
 # loss function
 sess = tf.InteractiveSession()
@@ -89,8 +93,9 @@ for epoch in range(epochCount):
     #predict_r = y.eval(feed_dict={u:test_u, v:test_v, r:test_r})
     #print(test_r[0][0], predict_r[0][0])
 
-    result = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
-    print("%d/%d\t%.4f"%(epoch+1, epochCount, result))
+    rmse_score = rmse.eval(feed_dict={u:test_u, v:test_v, r:test_r})
+    mae_score = mae.eval(feed_dict={u:test_u, v:test_v, r:test_r})
+    print("%d/%d\t%.4f\t%.4f"%(epoch+1, epochCount, rmse_score, mae_score))
 
 
 
